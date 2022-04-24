@@ -10,7 +10,13 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@mailchimp/mailchimp_marketing": "^3.0.75",
+    "alert": "^5.0.10",
+    "ejs": "^3.1.7",
     "express": "^4.17.3",
-    "nodemon": "^2.0.15"
+    "mailchimp": "^1.2.1",
+    "md5": "^2.3.0",
+    "nodemon": "^2.0.15",
+    "popups": "^1.1.3"
   }
 }
