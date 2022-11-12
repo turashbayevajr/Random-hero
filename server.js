@@ -1,117 +1,125 @@
-const express = require('express');
-const app = express();
-const port = 3000;
+var express = require('express');
+var ejs = require('ejs');
+var path = require('path');
+var app = express();
+var bodyParser = require('body-parser');
+var mongoose = require('mongoose');
+var session = require('express-session');
+var MongoStore = require('connect-mongo')(session);
+mongoose.set('useNewUrlParser', true);
+mongoose.set('useFindAndModify', false);
+mongoose.set('useCreateIndex', true);
+mongoose.connect('mongodb+srv://randomhero:azharnurda@cluster0.cw0qz.mongodb.net/notesDB', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+}, (err) => {
+  if (!err) {
+    console.log('MongoDB Connection Succeeded.');
+  } else {
+    console.log('Error in DB connection : ' + err);
+  }
+});
 app.set('view engine', 'ejs');
-const bodyParser = require('body-parser');
-const https = require("https");
-const {stringify} = require("nodemon/lib/utils");
-const tools = require("./alert.js");
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(express.static(__dirname + '/public'));
+//Mongo Things
+mongoose.connect("mongodb+srv://randomhero:azharnurda@cluster0.cw0qz.mongodb.net/notesDB",
+    // {useNewUrlParser: true},
+    {useUnifiedTopology: true})
+//create schema
+const notesSchema ={
+    title: String,
+    content: String,
+    type: String,
+    data: String,
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+}
+const Note =mongoose.model('Note',notesSchema);
 
-app.get('/registration', (req, res) => {
-    res.render('pages/registration');
-})
-app.post("/registration", function (req, res) {
-    const email = req.body._email;
-    const pass = req.body._pass;
-    const name = req.body._name;
-    const data = {
-        members: [
-            {
-                email_address: email,
-                status: "subscribed",
-                merge_fields: {
-                    PASSWORD: pass,
-                    NAME:name
-                }
-            }
-        ]
-    };
-
-    const jsonData = JSON.stringify(data);
-    const url = "https://us14.api.mailchimp.com/3.0/lists/39a952edc1";
-    const options = {
-        method: "POST",
-        auth:"nur:c529b24734a0ceff71347dd48ca7c6bb-us14"
-    }
-
-    const request = https.request(url, options, function (responce) {
-        if(responce.statusCode === 200){
-            res.sendFile(__dirname + "/success.html");
-        }
-        else res.sendFile(__dirname + "/error.html");
-        responce.on("data", function (data){
-            console.log(JSON.parse(data));
-        })
-    })
-    request.write(jsonData);
-    request.end();
-})
-
-
-//Sign in
-app.post("/signIn", function (req, res) {
-    const email = req.body._emailS;
-    const pass = req.body._passS;
-
-    const mailchimp = require("@mailchimp/mailchimp_marketing")
-    const md5 = require("md5")
-    mailchimp.setConfig({
-        apiKey: 'c529b24734a0ceff71347dd48ca7c6bb-us14',
-        server: 'us14',
-    });
-    const subscriber_hash = md5(email.toLowerCase());
-    const list_id = '39a952edc1';
-
-    const run = async () => {
-        try {
-            const response = await mailchimp.lists.getListMember(
-                list_id,
-                subscriber_hash
-            );
-            console.log(response.status);
-            if (response.status === "subscribed") {
-                if (response.merge_fields.PASSWORD === pass) {
-                    res.render('pages/clientPage',{
-                        name:response.merge_fields.NAME
-                    });
-                } else {
-                    res.redirect(req.originalUrl);
-                    var tools = require("./alert.js");
-                    tools.sum();
-                }
-            }
-        } catch (error) {
-            res.sendFile(__dirname + "/error.html")
-            console.log("Wrong email");
-        }
-    };
-
-    run();
-
-})
-app.get('/', (req, res) => {
+app.get('/index', (req, res) => {
     res.render('pages/index');
 })
 
-app.get('/about',((req, res) => {
+app.get('/about', ((req, res) => {
     res.render('pages/about');
 }))
-app.get('/cyber',((req, res) => {
+app.get('/cyber', ((req, res) => {
     res.render('pages/cyber');
 }))
-app.get('/csgo',((req, res) => {
+app.get('/csgo', ((req, res) => {
     res.render('pages/csgo');
 }))
-app.listen(process.env.PORT || 3000, () => {
-    console.log(`App listening at http://localhost:${port}`);
+app.get('/new', ((req, res) => {
+    res.sendFile(__dirname+ '/views/pages/new.html');
+}))
+app.get('/sport', (req, res) => {
+
+    Note.find({},function (err, notes) {
+        res.render('pages/sport', {
+            notesList: notes
+        })
+    })
 })
 
-//c1f4858f4dde9a347037aed056b159fb-us14
-//c529b24734a0ceff71347dd48ca7c6bb-us14
 
-//id
-//39a952edc1
+app.post('/new', function (req,res){
+    let newNote = new Note({
+        title: req.body.title,
+        type: req.body.type,
+        data: req.body.data,
+        content: req.body.content,
+        createdAt: new Date()
+    })
+    newNote.save();
+    res.redirect('/sport');
+})
 
-// https://shopmates.herokuapp.com/registration
+
+var db = mongoose.connection;
+db.on('error', console.error.bind(console, 'connection error:'));
+db.once('open', function () {
+});
+
+app.use(session({
+  secret: 'work hard',
+  resave: true,
+  saveUninitialized: false,
+  store: new MongoStore({
+    mongooseConnection: db
+  })
+}));
+
+app.set('views', path.join(__dirname, 'views'));
+app.set('view engine', 'ejs');	
+app.engine('html', require('ejs').renderFile);
+app.use(express.static(__dirname + '/views'));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
+
+
+
+var index = require('./routes/index');
+app.use('/', index);
+
+// catch 404 and forward to error handler
+app.use(function (req, res, next) {
+  var err = new Error('File Not Found');
+  err.status = 404;
+  next(err);
+});
+
+// error handler
+// define as the last app.use callback
+app.use(function (err, req, res, next) {
+  res.status(err.status || 500);
+  res.send(err.message);
+});
+
+
+const PORT = process.env.PORT || 6969;
+app.listen(PORT, function () {
+  console.log('Server is started on http://127.0.0.1:'+PORT);
+});
